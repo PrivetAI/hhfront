@@ -61,7 +61,7 @@ export default function VacanciesTable({
               <th className="p-3 text-left w-10">✓</th>
               <th className="p-3 text-left min-w-[200px]">Вакансия</th>
               <th className="p-3 text-left min-w-[300px]">Описание</th>
-              <th className="p-3 text-left min-w-[120px]">AI оценка</th>
+              <th className="p-3 text-left min-w-[120px]">AI оценка шансов</th>
               <th className="p-3 text-left min-w-[300px]">AI отклик</th>
             </tr>
           </thead>
