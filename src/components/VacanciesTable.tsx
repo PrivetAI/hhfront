@@ -1,3 +1,6 @@
+import { useEffect } from 'react'
+import ApiService from '../services/apiService'
+
 interface Vacancy {
   id: string
   name: string
@@ -5,6 +8,11 @@ interface Vacancy {
   employer: { name: string }
   snippet?: { requirement?: string; responsibility?: string }
   area: { name: string }
+  published_at?: string
+  schedule?: { name: string }
+  employment?: { name: string }
+  description?: string
+  descriptionLoading?: boolean
   aiScore?: number
   aiLetter?: string
   selected?: boolean
@@ -26,6 +34,13 @@ export default function VacanciesTable({
   onSendSelected
 }: TableProps) {
   const selectedCount = vacancies.filter(v => v.selected && v.aiLetter).length
+  const allSelected = vacancies.length > 0 && vacancies.every(v => v.selected !== false)
+  const apiService = ApiService.getInstance()
+
+  const toggleAll = () => {
+    const newValue = !allSelected
+    vacancies.forEach(v => onVacancyUpdate(v.id, { selected: newValue }))
+  }
 
   const formatSalary = (salary?: any) => {
     if (!salary) return null
@@ -36,101 +51,197 @@ export default function VacanciesTable({
     return parts.join(' ')
   }
 
-  const getDescription = (vacancy: Vacancy) => {
-    const text = vacancy.snippet?.requirement || vacancy.snippet?.responsibility || ''
-    return text.replace(/<[^>]*>/g, '').slice(0, 1000) + (text.length > 1000 ? '...' : '')
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 0) return 'Сегодня'
+    if (diffDays === 1) return 'Вчера'
+    if (diffDays < 7) return `${diffDays} дней назад`
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} недель назад`
+    return `${Math.floor(diffDays / 30)} месяцев назад`
+  }
+
+  const loadDescription = async (vacancy: Vacancy) => {
+    if (vacancy.description || vacancy.descriptionLoading) return
+    
+    onVacancyUpdate(vacancy.id, { descriptionLoading: true })
+    
+    try {
+      const details = await apiService.getVacancyDetails(vacancy.id)
+      onVacancyUpdate(vacancy.id, { 
+        description: details.description,
+        schedule: details.schedule ? { name: details.schedule } : vacancy.schedule,
+        employment: details.employment ? { name: details.employment } : vacancy.employment,
+        descriptionLoading: false 
+      })
+    } catch (err) {
+      onVacancyUpdate(vacancy.id, { descriptionLoading: false })
+    }
+  }
+
+  // Load descriptions sequentially
+  useEffect(() => {
+    const loadDescriptions = async () => {
+      for (const vacancy of vacancies) {
+        if (!vacancy.description && !vacancy.descriptionLoading) {
+          await loadDescription(vacancy)
+          // Small delay between requests
+          await new Promise(resolve => setTimeout(resolve, 200))
+        }
+      }
+    }
+    
+    if (vacancies.length > 0) {
+      loadDescriptions()
+    }
+  }, [vacancies.map(v => v.id).join(',')])
+
+  const analyzeAll = async () => {
+    for (const vacancy of vacancies) {
+      if (vacancy.aiScore === undefined) {
+        await onAnalyze(vacancy.id)
+      }
+    }
+  }
+
+  const generateAll = async () => {
+    for (const vacancy of vacancies) {
+      if (!vacancy.aiLetter) {
+        await onGenerate(vacancy.id)
+      }
+    }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-      <div className="p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl font-bold">Найдено вакансий: {vacancies.length}</h2>
-        <button
-          onClick={onSendSelected}
-          disabled={selectedCount === 0}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 w-full sm:w-auto"
-        >
-          Отправить отклики ({selectedCount})
-        </button>
+    <div className="hh-card overflow-hidden">
+      <div className="p-4 border-b border-[#e7e7e7] flex justify-between items-center">
+        <h3 className="text-lg font-semibold text-[#232529]">
+          Найдено вакансий: {vacancies.length}
+        </h3>
+        <div className="flex gap-3">
+          <button
+            onClick={analyzeAll}
+            className="hh-btn hh-btn-secondary text-sm"
+          >
+            Оценить все
+          </button>
+          <button
+            onClick={generateAll}
+            className="hh-btn hh-btn-primary text-sm"
+          >
+            Создать отклики
+          </button>
+          <button
+            onClick={onSendSelected}
+            disabled={selectedCount === 0}
+            className="hh-btn hh-btn-success text-sm"
+          >
+            Отправить ({selectedCount})
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-[#f4f4f5] text-sm">
             <tr>
-              <th className="p-3 text-left w-10">✓</th>
-              <th className="p-3 text-left min-w-[200px]">Вакансия</th>
-              <th className="p-3 text-left min-w-[300px]">Описание</th>
-              <th className="p-3 text-left min-w-[120px]">AI оценка шансов</th>
+              <th className="p-3 text-left w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="hh-checkbox"
+                />
+              </th>
+              <th className="p-3 text-left min-w-[350px]">Вакансия</th>
+              <th className="p-3 text-left min-w-[400px]">Описание</th>
+              <th className="p-3 text-left min-w-[80px]">Оценка</th>
               <th className="p-3 text-left min-w-[300px]">AI отклик</th>
             </tr>
           </thead>
           <tbody>
             {vacancies.map(vacancy => (
-              <tr key={vacancy.id} className="border-b hover:bg-gray-50">
-                <td className="p-3">
+              <tr key={vacancy.id} className="border-b border-[#e7e7e7] hover:bg-gray-50">
+                <td className="p-3 align-top">
                   <input
                     type="checkbox"
-                    checked={vacancy.selected || false}
+                    checked={vacancy.selected !== false}
                     onChange={e => onVacancyUpdate(vacancy.id, { selected: e.target.checked })}
-                    className="w-4 h-4"
+                    className="hh-checkbox"
                   />
                 </td>
-                <td className="p-3">
+                <td className="p-3 align-top">
                   <div>
                     <a
                       href={`https://hh.ru/vacancy/${vacancy.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-blue-600 hover:underline"
+                      className="hh-link font-medium block mb-1"
                     >
                       {vacancy.name}
                     </a>
-                    <div className="text-sm text-gray-600 mt-1">{vacancy.employer?.name}</div>
-                    {vacancy.salary && (
-                      <div className="text-sm text-green-600 mt-1">
-                        {formatSalary(vacancy.salary)}
+                    <div className="text-sm text-[#999999] space-y-1">
+                      <div>{vacancy.employer?.name}</div>
+                      {vacancy.salary && (
+                        <div className="text-[#4bb34b] font-medium">
+                          {formatSalary(vacancy.salary)}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <span>{vacancy.area?.name}</span>
+                        {vacancy.employment?.name && (
+                          <>
+                            <span className="text-[#d5d5d5]">•</span>
+                            <span>{vacancy.employment.name}</span>
+                          </>
+                        )}
+                        {vacancy.schedule?.name && (
+                          <>
+                            <span className="text-[#d5d5d5]">•</span>
+                            <span>{vacancy.schedule.name}</span>
+                          </>
+                        )}
                       </div>
-                    )}
-                    <div className="text-sm text-gray-500 mt-1">{vacancy.area?.name}</div>
+                      {vacancy.published_at && (
+                        <div className="text-xs">{formatDate(vacancy.published_at)}</div>
+                      )}
+                    </div>
                   </div>
                 </td>
-                <td className="p-3">
-                  <p className="text-sm text-gray-600">
-                    {getDescription(vacancy)}
-                  </p>
-                </td>
-                <td className="p-3">
-                  {vacancy.aiScore !== undefined ? (
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{vacancy.aiScore}%</div>
-                      <div className="text-xs text-gray-500">соответствие</div>
+                <td className="p-3 align-top">
+                  {vacancy.descriptionLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-5/6 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-4/6"></div>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => onAnalyze(vacancy.id)}
-                      className="text-blue-600 hover:underline text-sm"
-                    >
-                      Оценить
-                    </button>
+                    <p className="text-sm text-[#666666] leading-relaxed">
+                      {vacancy.description || vacancy.snippet?.requirement || vacancy.snippet?.responsibility || ''}
+                    </p>
                   )}
                 </td>
-                <td className="p-3">
-                  {vacancy.aiLetter ? (
-                    <textarea
-                      value={vacancy.aiLetter}
-                      onChange={e => onVacancyUpdate(vacancy.id, { aiLetter: e.target.value })}
-                      className="w-full p-2 border rounded text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={4}
-                    />
-                  ) : (
-                    <button
-                      onClick={() => onGenerate(vacancy.id)}
-                      className="text-blue-600 hover:underline text-sm"
-                    >
-                      Создать отклик
-                    </button>
+                <td className="p-3 text-center align-top">
+                  {vacancy.aiScore !== undefined && (
+                    <div className={`score-badge ${
+                      vacancy.aiScore >= 70 ? 'score-high' : 
+                      vacancy.aiScore >= 40 ? 'score-medium' : 'score-low'
+                    }`}>
+                      {vacancy.aiScore}%
+                    </div>
                   )}
+                </td>
+                <td className="p-3 align-top">
+                  <textarea
+                    value={vacancy.aiLetter || ''}
+                    onChange={e => onVacancyUpdate(vacancy.id, { aiLetter: e.target.value })}
+                    placeholder="AI отклик появится здесь..."
+                    className="hh-input text-sm resize-none"
+                    rows={4}
+                  />
                 </td>
               </tr>
             ))}
@@ -139,7 +250,7 @@ export default function VacanciesTable({
       </div>
 
       {vacancies.length === 0 && (
-        <div className="p-8 text-center text-gray-500">
+        <div className="p-12 text-center text-[#999999]">
           Используйте фильтры выше для поиска вакансий
         </div>
       )}

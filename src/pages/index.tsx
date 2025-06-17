@@ -24,48 +24,38 @@ export default function Home() {
     sendApplications
   } = useVacancies()
 
-  // Показываем загрузку во время инициализации аутентификации
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-[#f4f4f5] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка...</p>
+          <div className="w-12 h-12 border-3 border-[#d6001c] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-[#999999]">Загрузка...</p>
         </div>
       </div>
     )
   }
 
-  // Показываем лендинг, если пользователь не авторизован
   if (!isAuthenticated) {
     return <LandingPage loginUrl={loginUrl} />
   }
 
-  // Главное приложение для авторизованных пользователей
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">HH AI Assistant</h1>
-            {resume && (
-              <p className="text-sm text-gray-600">
-                {resume.first_name} {resume.last_name} • {resume.title}
-              </p>
-            )}
+    <div className="min-h-screen bg-[#f4f4f5]">
+      {/* Simple Header */}
+      <header className="bg-white border-b border-[#e7e7e7]">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <span className="text-[#d6001c] font-bold text-xl">hh</span>
+            <span className="text-[#232529] font-medium">агент</span>
           </div>
-          <button 
-            onClick={logout}
-            className="text-red-600 hover:underline"
-          >
+          <button onClick={logout} className="text-sm text-[#999999] hover:text-[#d6001c]">
             Выйти
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-6xl mx-auto px-4 py-6">
         <VacancyFilters 
           onSearch={searchVacancies} 
           loading={loading === 'search'} 
@@ -78,7 +68,7 @@ export default function Home() {
           onGenerate={generateLetter}
           onSendSelected={sendApplications}
         />
-      </div>
+      </main>
     </div>
   )
 }

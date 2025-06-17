@@ -1,27 +1,44 @@
-// services/apiService.ts
-import axios from 'axios'
+import axios, { AxiosInstance } from 'axios'
+import { AuthManager } from '../utils/auth'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 class ApiService {
   private static instance: ApiService
-  private token: string = ''
+  private axios: AxiosInstance
 
-  private constructor() {}
+  private constructor() {
+    this.axios = axios.create({
+      baseURL: BASE_URL
+    })
+
+    // Request interceptor
+    this.axios.interceptors.request.use(config => {
+      const token = AuthManager.getToken()
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+      return config
+    })
+
+    // Response interceptor for 401
+    this.axios.interceptors.response.use(
+      response => response,
+      async error => {
+        if (error.response?.status === 401) {
+          AuthManager.logout()
+          window.location.href = '/'
+        }
+        return Promise.reject(error)
+      }
+    )
+  }
 
   static getInstance(): ApiService {
     if (!ApiService.instance) {
       ApiService.instance = new ApiService()
     }
     return ApiService.instance
-  }
-
-  setToken(token: string) {
-    this.token = token
-  }
-
-  private getHeaders() {
-    return this.token ? { Authorization: `Bearer ${this.token}` } : {}
   }
 
   // Auth
@@ -34,51 +51,44 @@ class ApiService {
 
   // Resume
   async getResume() {
-    const response = await axios.get(`${BASE_URL}/api/resume`, {
-      headers: this.getHeaders()
-    })
+    const response = await this.axios.get('/api/resume')
     return response.data
   }
 
   // Dictionaries
   async getDictionaries() {
-    const response = await axios.get(`${BASE_URL}/api/dictionaries`)
+    const response = await this.axios.get('/api/dictionaries')
     return response.data
   }
 
   async getAreas() {
-    const response = await axios.get(`${BASE_URL}/api/areas`)
+    const response = await this.axios.get('/api/areas')
     return response.data
   }
 
   // Vacancies
   async searchVacancies(params: any) {
-    const response = await axios.get(`${BASE_URL}/api/vacancies`, {
-      params,
-      headers: this.getHeaders()
-    })
+    const response = await this.axios.get('/api/vacancies', { params })
+    return response.data
+  }
+
+  async getVacancyDetails(id: string) {
+    const response = await this.axios.get(`/api/vacancy/${id}`)
     return response.data
   }
 
   async analyzeVacancy(id: string) {
-    const response = await axios.post(`${BASE_URL}/api/vacancy/${id}/analyze`, {}, {
-      headers: this.getHeaders()
-    })
+    const response = await this.axios.post(`/api/vacancy/${id}/analyze`)
     return response.data
   }
 
   async generateLetter(id: string) {
-    const response = await axios.post(`${BASE_URL}/api/vacancy/${id}/generate-letter`, {}, {
-      headers: this.getHeaders()
-    })
+    const response = await this.axios.post(`/api/vacancy/${id}/generate-letter`)
     return response.data
   }
 
   async applyToVacancy(id: string, message: string) {
-    const response = await axios.post(`${BASE_URL}/api/vacancy/${id}/apply`, 
-      { message }, 
-      { headers: this.getHeaders() }
-    )
+    const response = await this.axios.post(`/api/vacancy/${id}/apply`, { message })
     return response.data
   }
 }

@@ -1,4 +1,3 @@
-// hooks/useVacancies.ts
 import { useState, useCallback } from 'react'
 import ApiService from '../services/apiService'
 import { Vacancy } from '../types'
@@ -13,7 +12,12 @@ export const useVacancies = () => {
     setLoading('search')
     try {
       const data = await apiService.searchVacancies(params)
-      setVacancies(data.items || [])
+      // Устанавливаем selected: true по умолчанию для всех вакансий
+      const vacanciesWithSelection = (data.items || []).map((v: Vacancy) => ({
+        ...v,
+        selected: true
+      }))
+      setVacancies(vacanciesWithSelection)
     } catch (err: any) {
       console.error('Search error:', err)
       alert(err.response?.data?.description || 'Ошибка поиска')

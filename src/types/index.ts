@@ -1,5 +1,3 @@
-// types/index.ts
-
 export interface Vacancy {
   id: string
   name: string
@@ -14,6 +12,11 @@ export interface Vacancy {
     responsibility?: string 
   }
   area: { name: string }
+  published_at?: string
+  schedule?: { name: string }
+  employment?: { name: string }
+  description?: string
+  descriptionLoading?: boolean
   aiScore?: number
   aiLetter?: string
   selected?: boolean
@@ -24,7 +27,6 @@ export interface Resume {
   first_name: string
   last_name: string
   title: string
-  // Добавьте другие поля по необходимости
 }
 
 export interface Area {
@@ -54,6 +56,7 @@ export interface SearchFilters {
   experience: string
   employment: string
   schedule: string
+  per_page: string
 }
 
 export interface VacancyFiltersProps {

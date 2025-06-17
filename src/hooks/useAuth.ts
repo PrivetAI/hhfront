@@ -1,4 +1,3 @@
-// hooks/useAuth.ts
 import { useState, useEffect, useCallback } from 'react'
 import ApiService from '../services/apiService'
 import { AuthManager } from '../utils/auth'
@@ -12,9 +11,8 @@ export const useAuth = () => {
 
   const apiService = ApiService.getInstance()
 
-  const fetchResume = useCallback(async (authToken: string) => {
+  const fetchResume = useCallback(async () => {
     try {
-      apiService.setToken(authToken)
       const resumeData = await apiService.getResume()
       setResume(resumeData)
     } catch (err) {
@@ -32,32 +30,30 @@ export const useAuth = () => {
       setIsAuthenticated(true)
       AuthManager.clearAuthCodeFromUrl()
       
-      await fetchResume(newToken)
+      await fetchResume()
     } catch (err) {
       console.error('Auth error:', err)
       throw err
     }
-  }, [apiService, fetchResume])
+  }, [fetchResume])
 
   const logout = useCallback(() => {
-    AuthManager.removeToken()
+    AuthManager.logout()
     setToken('')
     setResume(null)
     setIsAuthenticated(false)
   }, [])
 
   useEffect(() => {
-    let isMounted = true
-
     const initAuth = async () => {
       const savedToken = AuthManager.getToken()
       const authCode = AuthManager.getAuthCodeFromUrl()
 
-      if (savedToken && !resume) {
+      if (savedToken) {
         setToken(savedToken)
         setIsAuthenticated(true)
-        await fetchResume(savedToken)
-      } else if (authCode && !savedToken) {
+        await fetchResume()
+      } else if (authCode) {
         try {
           await authenticate(authCode)
         } catch (err: any) {
@@ -65,17 +61,11 @@ export const useAuth = () => {
         }
       }
 
-      if (isMounted) {
-        setIsLoading(false)
-      }
+      setIsLoading(false)
     }
 
     initAuth()
-
-    return () => {
-      isMounted = false
-    }
-  }, []) // Пустой массив зависимостей
+  }, [])
 
   return {
     token,
