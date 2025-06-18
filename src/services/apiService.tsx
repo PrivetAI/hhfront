@@ -1,8 +1,9 @@
 import axios, { AxiosInstance } from 'axios'
 import { AuthManager } from '../utils/auth'
+import cacheService from './cacheService'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
+  
 class ApiService {
   private static instance: ApiService
   private axios: AxiosInstance

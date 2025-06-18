@@ -11,14 +11,17 @@ export const useAuth = () => {
 
   const apiService = ApiService.getInstance()
 
+  
   const fetchResume = useCallback(async () => {
+    if (resume) return // Skip if already loaded
     try {
       const resumeData = await apiService.getResume()
       setResume(resumeData)
     } catch (err) {
       console.error('Failed to fetch resume:', err)
     }
-  }, [apiService])
+  }, [apiService, resume])
+
 
   const authenticate = useCallback(async (code: string) => {
     try {
